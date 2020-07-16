@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <UserSecretsId>dotnet-PcVolumeControlService-CF37FB04-51E9-452C-9200-96559C9C65FD</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+     <PackageReference Include="AudioSwitcher.AudioApi">
+      <Version>4.0.0-alpha5</Version>
+      <NoWarn>NU1701</NoWarn>
+    </PackageReference>
+    <PackageReference Include="AudioSwitcher.AudioApi.CoreAudio">
+      <Version>4.0.0-alpha5</Version>
+      <NoWarn>NU1701</NoWarn>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="3.1.6" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="3.1.6" />
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+    <PackageReference Include="Serilog.Extensions.Logging.File" Version="2.0.0" />
+  </ItemGroup>
+</Project>
