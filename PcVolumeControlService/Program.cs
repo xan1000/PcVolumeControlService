@@ -8,14 +8,13 @@ namespace PcVolumeControlService
     {
         public static void Main(string[] args) => CreateHostBuilder(args).Build().Run();
 
-        private static IHostBuilder CreateHostBuilder(string[] args) =>
-            Host.CreateDefaultBuilder(args).
-                ConfigureLogging(builder => builder.AddFile(@"C:\ProgramData\PcVolumeControlService\log-{Date}.txt")).
-                ConfigureServices(services =>
-                {
-                    services.AddSingleton<IClient, Client>();
-                    services.AddSingleton<CachingCoreAudioController>();
-                    services.AddHostedService<Worker>();
-                }).UseWindowsService();
+        private static IHostBuilder CreateHostBuilder(string[] args) => Host.CreateDefaultBuilder(args).
+            ConfigureLogging((context, logging) => logging.AddFile(context.Configuration.GetSection("Logging"))).
+            ConfigureServices(services =>
+            {
+                services.AddSingleton<IClient, Client>();
+                services.AddSingleton<CachingCoreAudioController>();
+                services.AddHostedService<Worker>();
+            }).UseWindowsService();
     }
 }

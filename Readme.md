@@ -15,18 +15,23 @@ The following packages have been updated:
 
 This helps reduce the continuous background CPU usage used by the current stable version of these packages.
 
-# Create Service Commands
+# Build Service Commands
 
 ```
 dotnet build -c Release
+dotnet publish -c Release -r win-x64
 ```
 
-```
-dotnet publish -r win-x64 -c Release
-```
+**OR**
 
 ```
-sc create PcVolumeControlService BinPath="<path-to-repository>\PcVolumeControlService\bin\Release\netcoreapp3.1\win-x64\PcVolumeControlService.exe"
+dotnet build -c Release && dotnet publish -c Release -r win-x64
+```
+
+# Create Service Commands
+
+```
+sc create PcVolumeControlService BinPath="<path-to-repository>\PcVolumeControlService\bin\Release\netcoreapp3.1\win-x64\publish\PcVolumeControlService.exe"
 ```
 
 # Start, Stop & Delete Service Commands
