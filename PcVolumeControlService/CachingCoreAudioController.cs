@@ -10,6 +10,7 @@ namespace PcVolumeControlService
     {
         private static readonly TimeSpan MinimumCacheLifetime = TimeSpan.FromMinutes(1);
         private static readonly object CoreAudioControllerLock = new object();
+        private static readonly TimeSpan CacheExpiryTolerance = TimeSpan.FromSeconds(1);
 
         private readonly ILogger<CachingCoreAudioController> _logger;
         private TimeSpan _cacheLifetime;
@@ -48,8 +49,7 @@ namespace PcVolumeControlService
                     throw new ArgumentOutOfRangeException($"Cannot set lifetime smaller than {MinimumCacheLifetime}");
 
                 _cacheLifetime = value;
-                // ReSharper disable once InconsistentlySynchronizedField
-                _logger.LogInformation($"Cache lifetime set to {_cacheLifetime}");
+                _logger.LogTrace($"Cache lifetime set to {_cacheLifetime}");
             }
         }
 
@@ -69,7 +69,7 @@ namespace PcVolumeControlService
             var previousCacheExpiry = _cacheExpiry;
             _cacheExpiry = DateTime.Now.Add(_cacheLifetime);
 
-            _logger.LogInformation($"Cache expiry updated from {previousCacheExpiry} to {_cacheExpiry}");
+            _logger.LogTrace($"Cache expiry updated from {previousCacheExpiry} to {_cacheExpiry}");
 
             ExpireCache(stoppingToken);
         }
@@ -78,18 +78,24 @@ namespace PcVolumeControlService
         {
             Task.Run(async () =>
             {
-                // Wait for the right time to expire cache.
-                _logger.LogInformation("Waiting to expire cache.");
+                _logger.LogTrace("Waiting to expire cache.");
                 var now = DateTime.Now;
                 if(_cacheExpiry > now)
+                {
                     await Task.Delay(_cacheExpiry.Subtract(now), stoppingToken);
+                    if(stoppingToken.IsCancellationRequested)
+                        return;
+                }
 
-                _logger.LogInformation("Checking if cache should be expired.");
+                _logger.LogTrace("Checking if cache should be expired.");
+                bool expireCache;
                 lock(CoreAudioControllerLock)
                 {
-                    if(_cacheExpiry <= DateTime.Now)
+                    var cacheExpiryTimeSpan = _cacheExpiry.Subtract(DateTime.Now).Subtract(CacheExpiryTolerance);
+                    expireCache = cacheExpiryTimeSpan <= TimeSpan.Zero;
+
+                    if(expireCache)
                     {
-                        _logger.LogInformation("Expiring cache.");
                         try
                         {
                             _coreAudioController?.Dispose();
@@ -100,6 +106,8 @@ namespace PcVolumeControlService
                         }
                     }
                 }
+                if(expireCache)
+                    _logger.LogTrace("Expired cache.");
             }, stoppingToken).ConfigureAwait(false);
         }
     }
