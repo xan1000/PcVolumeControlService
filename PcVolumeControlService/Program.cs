@@ -19,7 +19,7 @@ namespace PcVolumeControlService
                 {
                     services.AddSingleton<IClient, Client>();
                     services.AddSingleton<CachingCoreAudioController>();
-                    services.AddHostedService<Worker>();
+                    services.AddHostedService<Server>();
                 }).UseWindowsService();
     }
 }

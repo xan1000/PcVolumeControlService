@@ -8,15 +8,14 @@ using Microsoft.Extensions.Logging;
 
 namespace PcVolumeControlService
 {
-    public class Worker : BackgroundService
+    public class Server : BackgroundService
     {
         private const int Port = 3000;
 
-        private readonly ILogger<Worker> _logger;
+        private readonly ILogger<Server> _logger;
         private readonly IClient _client;
-        private TcpClient _tcpClient;
 
-        public Worker(ILogger<Worker> logger, IClient client)
+        public Server(ILogger<Server> logger, IClient client)
         {
             _logger = logger;
             _client = client;
@@ -24,24 +23,19 @@ namespace PcVolumeControlService
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("Worker running at: {time}", DateTime.Now);
+            _logger.LogInformation("Server running at: {time}", DateTime.Now);
 
             var tcpListener = new TcpListener(IPAddress.Any, Port);
             tcpListener.Start();
 
-            await using(stoppingToken.Register(() => tcpListener.Stop()))
-            await using(stoppingToken.Register(() => _tcpClient?.Dispose()))
+            await using(stoppingToken.Register(tcpListener.Stop))
             {
                 try
                 {
                     while(!stoppingToken.IsCancellationRequested)
                     {
-                        // Note only 1 client connection is supported, i.e., multiple clients cannot connect in parallel.
-                        using(_tcpClient = await tcpListener.AcceptTcpClientAsync())
-                        {
-                            await _client.ExecuteAsync(_tcpClient, stoppingToken);
-                        }
-                        _tcpClient = null;
+                        var tcpClient = await tcpListener.AcceptTcpClientAsync();
+                        RunClient(tcpClient, stoppingToken);
                     }
                 }
                 catch(Exception e)
@@ -60,7 +54,22 @@ namespace PcVolumeControlService
                 }
             }
 
-            _logger.LogInformation("Worker stopping at: {time}", DateTime.Now);
+            _logger.LogInformation("Server stopping at: {time}", DateTime.Now);
+        }
+
+        private void RunClient(TcpClient tcpClient, CancellationToken stoppingToken)
+        {
+            // Run client in the background.
+            Task.Run(async () =>
+            {
+                using(tcpClient)
+                {
+                    await using(stoppingToken.Register(tcpClient.Dispose))
+                    {
+                        await _client.ExecuteAsync(tcpClient, stoppingToken);
+                    }
+                }
+            }, stoppingToken).ConfigureAwait(false);
         }
     }
 }

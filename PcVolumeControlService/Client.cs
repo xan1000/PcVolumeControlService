@@ -39,6 +39,8 @@ namespace PcVolumeControlService
 
         public async Task ExecuteAsync(TcpClient tcpClient, CancellationToken stoppingToken)
         {
+            _logger.LogTrace("Client started at: {time}", DateTime.Now);
+
             try
             {
                 await using var bufferedStream = new BufferedStream(tcpClient.GetStream());
@@ -53,10 +55,12 @@ namespace PcVolumeControlService
 
                 while(tcpClient.Connected)
                 {
+                    _logger.LogTrace("Reading message from client.");
                     var message = await streamReader.ReadLineAsync();
                     if(message == null)
-                        return;
+                        break;
 
+                    _logger.LogTrace("Reading complete, deserialising message from client.");
                     var audioUpdate = JsonConvert.DeserializeObject<PcAudio>(message, JsonSettings);
                     if(audioUpdate!.ProtocolVersion != ProtocolVersion)
                         throw new InvalidOperationException(
@@ -73,11 +77,15 @@ namespace PcVolumeControlService
                 if(!stoppingToken.IsCancellationRequested)
                     _logger.LogError(e, $"Exception occurred for client and {nameof(stoppingToken)} was not cancelled.");
             }
+            
+            _logger.LogTrace("Client ended at: {time}", DateTime.Now);
         }
 
         private async Task SendCurrentAudioStateAsync(
             StreamWriter streamWriter, CoreAudioController coreAudioController, CancellationToken stoppingToken)
         {
+            _logger.LogTrace("Sending current audio state to client.");
+
             var audioState = await GetCurrentAudioStateAsync(coreAudioController);
 
             var json = JsonConvert.SerializeObject(audioState, JsonSettings);

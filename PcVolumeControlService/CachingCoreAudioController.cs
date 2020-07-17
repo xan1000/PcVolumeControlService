@@ -76,6 +76,7 @@ namespace PcVolumeControlService
 
         private void ExpireCache(CancellationToken stoppingToken)
         {
+            // Expire cache in the background.
             Task.Run(async () =>
             {
                 _logger.LogTrace("Waiting to expire cache.");
