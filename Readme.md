@@ -31,7 +31,7 @@ dotnet build -c Release && dotnet publish -c Release -r win-x64
 # Create Service Commands
 
 ```
-sc create PcVolumeControlService BinPath="<path-to-repository>\PcVolumeControlService\bin\Release\netcoreapp3.1\win-x64\publish\PcVolumeControlService.exe"
+sc create PcVolumeControlService BinPath="<path-to-repository>\PcVolumeControlService\bin\Release\net5.0\PcVolumeControlService.exe"
 ```
 
 # Start, Stop & Delete Service Commands
