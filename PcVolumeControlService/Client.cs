@@ -21,7 +21,7 @@ namespace PcVolumeControlService
 
         private static readonly Encoding Encoding = Encoding.ASCII;
 
-        private static readonly JsonSerializerSettings JsonSettings = new JsonSerializerSettings
+        private static readonly JsonSerializerSettings JsonSettings = new()
         {
             NullValueHandling = NullValueHandling.Ignore,
             MissingMemberHandling = MissingMemberHandling.Ignore,

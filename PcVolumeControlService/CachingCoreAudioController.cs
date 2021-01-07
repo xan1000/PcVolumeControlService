@@ -9,11 +9,11 @@ namespace PcVolumeControlService
     public class CachingCoreAudioController : IDisposable
     {
         private static readonly TimeSpan MinimumCacheLifetime = TimeSpan.FromMinutes(1);
-        private static readonly object CoreAudioControllerLock = new object();
+        private static readonly object CoreAudioControllerLock = new();
         private static readonly TimeSpan CacheExpiryTolerance = TimeSpan.FromSeconds(1);
 
         private readonly ILogger<CachingCoreAudioController> _logger;
-        private TimeSpan _cacheLifetime;
+        private readonly TimeSpan _cacheLifetime;
         private DateTime _cacheExpiry;
         private CoreAudioController _coreAudioController;
 
@@ -43,7 +43,7 @@ namespace PcVolumeControlService
         {
             // ReSharper disable once UnusedMember.Global
             get => _cacheLifetime;
-            set
+            init
             {
                 if(value < MinimumCacheLifetime)
                     throw new ArgumentOutOfRangeException($"Cannot set lifetime smaller than {MinimumCacheLifetime}");
