@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -12,7 +13,8 @@ namespace PcVolumeControlService
             Host.CreateDefaultBuilder(args).
                 ConfigureLogging((context, logging) =>
                 {
-                    if(context.HostingEnvironment.IsProduction())
+                    if(context.HostingEnvironment.IsProduction() &&
+                        context.Configuration.GetValue<bool>("LoggingEnabled"))
                         logging.AddFile(context.Configuration.GetSection("Logging"));
                 }).
                 ConfigureServices(services =>
