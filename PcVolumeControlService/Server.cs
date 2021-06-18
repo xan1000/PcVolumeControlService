@@ -10,7 +10,7 @@ namespace PcVolumeControlService
 {
     public class Server : BackgroundService
     {
-        private const int Port = 3000;
+        private const int Port = 3500;
 
         private readonly ILogger<Server> _logger;
         private readonly IClient _client;
