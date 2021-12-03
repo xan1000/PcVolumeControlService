@@ -12,160 +12,159 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
 using VolumeControl;
 
-namespace PcVolumeControlService
+namespace PcVolumeControlService;
+
+public class Client : IClient
 {
-    public class Client : IClient
+    private const string ApplicationVersion = "v8";
+    private const int ProtocolVersion = 7;
+
+    private static readonly Encoding Encoding = Encoding.ASCII;
+
+    private static readonly JsonSerializerSettings JsonSettings = new()
     {
-        private const string ApplicationVersion = "v8";
-        private const int ProtocolVersion = 7;
+        NullValueHandling = NullValueHandling.Ignore,
+        MissingMemberHandling = MissingMemberHandling.Ignore,
+        ContractResolver = new CamelCasePropertyNamesContractResolver()
+    };
 
-        private static readonly Encoding Encoding = Encoding.ASCII;
+    private readonly ILogger<Client> _logger;
+    private readonly CachingCoreAudioController _cachingCoreAudioController;
 
-        private static readonly JsonSerializerSettings JsonSettings = new()
+    public Client(ILogger<Client> logger, CachingCoreAudioController cachingCoreAudioController)
+    {
+        _logger = logger;
+        _cachingCoreAudioController = cachingCoreAudioController;
+    }
+
+    public async Task ExecuteAsync(TcpClient tcpClient, CancellationToken stoppingToken)
+    {
+        _logger.LogTrace("Client started at: {time}", DateTime.Now);
+
+        try
         {
-            NullValueHandling = NullValueHandling.Ignore,
-            MissingMemberHandling = MissingMemberHandling.Ignore,
-            ContractResolver = new CamelCasePropertyNamesContractResolver()
+            await using var bufferedStream = new BufferedStream(tcpClient.GetStream());
+            using var streamReader = new StreamReader(bufferedStream, Encoding);
+            await using var streamWriter = new StreamWriter(bufferedStream, Encoding);
+
+            if(tcpClient.Connected)
+            {
+                var coreAudioController = _cachingCoreAudioController.GetCoreAudioController(stoppingToken);
+                await SendCurrentAudioStateAsync(streamWriter, coreAudioController, stoppingToken);
+            }
+
+            while(tcpClient.Connected)
+            {
+                _logger.LogTrace("Reading message from client.");
+                var message = await streamReader.ReadLineAsync();
+                if(message == null)
+                    break;
+
+                _logger.LogTrace("Reading complete, deserialising message from client.");
+                var audioUpdate = JsonConvert.DeserializeObject<PcAudio>(message, JsonSettings);
+                if(audioUpdate!.ProtocolVersion != ProtocolVersion)
+                    throw new InvalidOperationException(
+                        $"Protocol version mismatch Client('{audioUpdate.ProtocolVersion}') != " +
+                        $"Server('{ProtocolVersion}')");
+
+                var coreAudioController = _cachingCoreAudioController.GetCoreAudioController(stoppingToken);
+                await UpdateStateAsync(audioUpdate, coreAudioController, stoppingToken);
+                await SendCurrentAudioStateAsync(streamWriter, coreAudioController, stoppingToken);
+            }
+        }
+        catch(Exception e)
+        {
+            if(!stoppingToken.IsCancellationRequested)
+                _logger.LogError(e, $"Exception occurred for client and {nameof(stoppingToken)} was not cancelled.");
+        }
+            
+        _logger.LogTrace("Client ended at: {time}", DateTime.Now);
+    }
+
+    private async Task SendCurrentAudioStateAsync(
+        StreamWriter streamWriter, CoreAudioController coreAudioController, CancellationToken stoppingToken)
+    {
+        _logger.LogTrace("Sending current audio state to client.");
+
+        var audioState = await GetCurrentAudioStateAsync(coreAudioController);
+
+        var json = JsonConvert.SerializeObject(audioState, JsonSettings);
+
+        await streamWriter.WriteLineAsync(new StringBuilder(json), stoppingToken);
+        await streamWriter.FlushAsync();
+    }
+
+    private async Task<PcAudio> GetCurrentAudioStateAsync(CoreAudioController coreAudioController)
+    {
+        var audioState = new PcAudio
+        {
+            ApplicationVersion = ApplicationVersion,
+            ProtocolVersion = ProtocolVersion
         };
 
-        private readonly ILogger<Client> _logger;
-        private readonly CachingCoreAudioController _cachingCoreAudioController;
-
-        public Client(ILogger<Client> logger, CachingCoreAudioController cachingCoreAudioController)
+        var devices = await coreAudioController.GetPlaybackDevicesAsync();
+        foreach(var device in devices.Where(x => x.State == DeviceState.Active).ToList())
         {
-            _logger = logger;
-            _cachingCoreAudioController = cachingCoreAudioController;
+            audioState.DeviceIds.Add(device.Id.ToString(), device.FullName);
         }
 
-        public async Task ExecuteAsync(TcpClient tcpClient, CancellationToken stoppingToken)
+        var defaultPlaybackDevice = coreAudioController.DefaultPlaybackDevice;
+
+        audioState.DefaultDevice = new AudioDevice
         {
-            _logger.LogTrace("Client started at: {time}", DateTime.Now);
+            Name = defaultPlaybackDevice.FullName,
+            DeviceId = defaultPlaybackDevice.Id.ToString(),
+            MasterVolume = defaultPlaybackDevice.Volume,
+            MasterMuted = defaultPlaybackDevice.IsMuted
+        };
 
-            try
-            {
-                await using var bufferedStream = new BufferedStream(tcpClient.GetStream());
-                using var streamReader = new StreamReader(bufferedStream, Encoding);
-                await using var streamWriter = new StreamWriter(bufferedStream, Encoding);
+        return audioState;
+    }
 
-                if(tcpClient.Connected)
-                {
-                    var coreAudioController = _cachingCoreAudioController.GetCoreAudioController(stoppingToken);
-                    await SendCurrentAudioStateAsync(streamWriter, coreAudioController, stoppingToken);
-                }
+    private async Task UpdateStateAsync(
+        PcAudio audioUpdate, CoreAudioController coreAudioController, CancellationToken stoppingToken)
+    {
+        if(audioUpdate?.DefaultDevice == null)
+            return;
 
-                while(tcpClient.Connected)
-                {
-                    _logger.LogTrace("Reading message from client.");
-                    var message = await streamReader.ReadLineAsync();
-                    if(message == null)
-                        break;
+        var defaultPlaybackDevice = coreAudioController.DefaultPlaybackDevice;
 
-                    _logger.LogTrace("Reading complete, deserialising message from client.");
-                    var audioUpdate = JsonConvert.DeserializeObject<PcAudio>(message, JsonSettings);
-                    if(audioUpdate!.ProtocolVersion != ProtocolVersion)
-                        throw new InvalidOperationException(
-                            $"Protocol version mismatch Client('{audioUpdate.ProtocolVersion}') != " +
-                            $"Server('{ProtocolVersion}')");
+        // Change default audio device.
+        if(audioUpdate.DefaultDevice.DeviceId != defaultPlaybackDevice.Id.ToString())
+        {
+            var deviceId = Guid.Parse(audioUpdate.DefaultDevice.DeviceId);
+            var newDefaultAudioDevice = await coreAudioController.GetDeviceAsync(deviceId);
 
-                    var coreAudioController = _cachingCoreAudioController.GetCoreAudioController(stoppingToken);
-                    await UpdateStateAsync(audioUpdate, coreAudioController, stoppingToken);
-                    await SendCurrentAudioStateAsync(streamWriter, coreAudioController, stoppingToken);
-                }
-            }
-            catch(Exception e)
-            {
-                if(!stoppingToken.IsCancellationRequested)
-                    _logger.LogError(e, $"Exception occurred for client and {nameof(stoppingToken)} was not cancelled.");
-            }
-            
-            _logger.LogTrace("Client ended at: {time}", DateTime.Now);
+            await newDefaultAudioDevice.SetAsDefaultAsync(stoppingToken);
+            await newDefaultAudioDevice.SetAsDefaultCommunicationsAsync(stoppingToken);
+
+            return;
         }
 
-        private async Task SendCurrentAudioStateAsync(
-            StreamWriter streamWriter, CoreAudioController coreAudioController, CancellationToken stoppingToken)
+        // Change muted and / or volume values.
+        if(audioUpdate.DefaultDevice.MasterMuted.HasValue)
         {
-            _logger.LogTrace("Sending current audio state to client.");
+            var muted = audioUpdate.DefaultDevice.MasterMuted.Value;
 
-            var audioState = await GetCurrentAudioStateAsync(coreAudioController);
-
-            var json = JsonConvert.SerializeObject(audioState, JsonSettings);
-
-            await streamWriter.WriteLineAsync(new StringBuilder(json), stoppingToken);
-            await streamWriter.FlushAsync();
+            if(muted != defaultPlaybackDevice.IsMuted)
+                await defaultPlaybackDevice.SetMuteAsync(muted, stoppingToken);
         }
-
-        private async Task<PcAudio> GetCurrentAudioStateAsync(CoreAudioController coreAudioController)
+        if(audioUpdate.DefaultDevice.MasterVolume.HasValue)
         {
-            var audioState = new PcAudio
-            {
-                ApplicationVersion = ApplicationVersion,
-                ProtocolVersion = ProtocolVersion
-            };
+            const int increment = 2;
 
-            var devices = await coreAudioController.GetPlaybackDevicesAsync();
-            foreach(var device in devices.Where(x => x.State == DeviceState.Active).ToList())
-            {
-                audioState.DeviceIds.Add(device.Id.ToString(), device.FullName);
-            }
+            var deviceAudioVolume = defaultPlaybackDevice.Volume;
+            var clientAudioVolume = audioUpdate.DefaultDevice.MasterVolume.Value;
 
-            var defaultPlaybackDevice = coreAudioController.DefaultPlaybackDevice;
+            var volume = deviceAudioVolume;
+            if(clientAudioVolume < deviceAudioVolume)
+                volume -= increment;
+            else if(clientAudioVolume > deviceAudioVolume)
+                volume += increment;
 
-            audioState.DefaultDevice = new AudioDevice
-            {
-                Name = defaultPlaybackDevice.FullName,
-                DeviceId = defaultPlaybackDevice.Id.ToString(),
-                MasterVolume = defaultPlaybackDevice.Volume,
-                MasterMuted = defaultPlaybackDevice.IsMuted
-            };
-
-            return audioState;
-        }
-
-        private async Task UpdateStateAsync(
-            PcAudio audioUpdate, CoreAudioController coreAudioController, CancellationToken stoppingToken)
-        {
-            if(audioUpdate?.DefaultDevice == null)
-                return;
-
-            var defaultPlaybackDevice = coreAudioController.DefaultPlaybackDevice;
-
-            // Change default audio device.
-            if(audioUpdate.DefaultDevice.DeviceId != defaultPlaybackDevice.Id.ToString())
-            {
-                var deviceId = Guid.Parse(audioUpdate.DefaultDevice.DeviceId);
-                var newDefaultAudioDevice = await coreAudioController.GetDeviceAsync(deviceId);
-
-                await newDefaultAudioDevice.SetAsDefaultAsync(stoppingToken);
-                await newDefaultAudioDevice.SetAsDefaultCommunicationsAsync(stoppingToken);
-
-                return;
-            }
-
-            // Change muted and / or volume values.
-            if(audioUpdate.DefaultDevice.MasterMuted.HasValue)
-            {
-                var muted = audioUpdate.DefaultDevice.MasterMuted.Value;
-
-                if(muted != defaultPlaybackDevice.IsMuted)
-                    await defaultPlaybackDevice.SetMuteAsync(muted, stoppingToken);
-            }
-            if(audioUpdate.DefaultDevice.MasterVolume.HasValue)
-            {
-                const int increment = 2;
-
-                var deviceAudioVolume = defaultPlaybackDevice.Volume;
-                var clientAudioVolume = audioUpdate.DefaultDevice.MasterVolume.Value;
-
-                var volume = deviceAudioVolume;
-                if(clientAudioVolume < deviceAudioVolume)
-                    volume -= increment;
-                else if(clientAudioVolume > deviceAudioVolume)
-                    volume += increment;
-
-                // ReSharper disable once CompareOfFloatsByEqualityOperator
-                if(volume != deviceAudioVolume)
-                    await defaultPlaybackDevice.SetVolumeAsync(volume, stoppingToken);
-            }
+            // ReSharper disable once CompareOfFloatsByEqualityOperator
+            if(volume != deviceAudioVolume)
+                await defaultPlaybackDevice.SetVolumeAsync(volume, stoppingToken);
         }
     }
 }

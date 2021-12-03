@@ -2,22 +2,21 @@
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
 
-namespace PcVolumeControlService
+namespace PcVolumeControlService;
+
+public class WarmUp : BackgroundService
 {
-    public class WarmUp : BackgroundService
+    private readonly CachingCoreAudioController _cachingCoreAudioController;
+
+    public WarmUp(CachingCoreAudioController cachingCoreAudioController)
     {
-        private readonly CachingCoreAudioController _cachingCoreAudioController;
+        _cachingCoreAudioController = cachingCoreAudioController;
+    }
 
-        public WarmUp(CachingCoreAudioController cachingCoreAudioController)
-        {
-            _cachingCoreAudioController = cachingCoreAudioController;
-        }
-
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-        {
-            // Perform an initial loading of Core Audio Controller to warm up the application.
-            // The Core Audio Controller library can take some time to return and is blocking.
-            await Task.Run(() => _cachingCoreAudioController.GetCoreAudioController(stoppingToken), stoppingToken);
-        }
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        // Perform an initial loading of Core Audio Controller to warm up the application.
+        // The Core Audio Controller library can take some time to return and is blocking.
+        await Task.Run(() => _cachingCoreAudioController.GetCoreAudioController(stoppingToken), stoppingToken);
     }
 }

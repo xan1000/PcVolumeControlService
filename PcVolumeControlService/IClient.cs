@@ -2,10 +2,9 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace PcVolumeControlService
+namespace PcVolumeControlService;
+
+public interface IClient
 {
-    public interface IClient
-    {
-        public Task ExecuteAsync(TcpClient tcpClient, CancellationToken stoppingToken);
-    }
+    public Task ExecuteAsync(TcpClient tcpClient, CancellationToken stoppingToken);
 }
