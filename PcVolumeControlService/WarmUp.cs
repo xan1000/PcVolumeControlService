@@ -1,8 +1,4 @@
-﻿using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Hosting;
-
-namespace PcVolumeControlService;
+﻿namespace PcVolumeControlService;
 
 public class WarmUp : BackgroundService
 {

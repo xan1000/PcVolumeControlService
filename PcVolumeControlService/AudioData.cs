@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-// ReSharper disable ClassNeverInstantiated.Global
+﻿// ReSharper disable ClassNeverInstantiated.Global
 // ReSharper disable UnusedMember.Global
 // ReSharper disable UnusedAutoPropertyAccessor.Global
 // ReSharper disable CollectionNeverQueried.Global

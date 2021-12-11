@@ -1,8 +1,4 @@
-﻿using System;
-using System.Threading;
-using System.Threading.Tasks;
-using AudioSwitcher.AudioApi.CoreAudio;
-using Microsoft.Extensions.Logging;
+﻿using AudioSwitcher.AudioApi.CoreAudio;
 
 namespace PcVolumeControlService;
 
