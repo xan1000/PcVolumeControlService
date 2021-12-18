@@ -9,7 +9,7 @@ public static class Program
             ConfigureLogging((context, logging) =>
             {
                 if(context.HostingEnvironment.IsProduction() &&
-                   context.Configuration.GetValue<bool>("LoggingEnabled"))
+                    context.Configuration.GetValue<bool>("LoggingEnabled"))
                     logging.AddFile(context.Configuration.GetSection("Logging"));
             }).
             ConfigureServices(services =>

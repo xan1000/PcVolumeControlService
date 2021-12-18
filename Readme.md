@@ -19,7 +19,7 @@ This helps reduce the continuous background CPU usage used by the current stable
 
 ```
 dotnet build -c Release
-dotnet publish -c Release -r win-x64
+dotnet publish -c Release -r win-x64 --no-self-contained
 ```
 
 **OR**
