@@ -50,7 +50,7 @@ public class Client : IClient
             while(tcpClient.Connected)
             {
                 _logger.LogTrace("Reading message from client.");
-                var message = await streamReader.ReadLineAsync();
+                var message = await streamReader.ReadLineAsync(stoppingToken);
                 if(message == null)
                     break;
 
