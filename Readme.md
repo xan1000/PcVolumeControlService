@@ -4,7 +4,7 @@ This project is based on:
 
 https://github.com/PcVolumeControl
 
-The server has been updated to run on .NET Core 3.1 and can be installed as a service.
+The server has been updated to run on .NET 8 and can be installed as a service.
 
 The following packages have been updated:
 
@@ -31,7 +31,7 @@ dotnet build -c Release && dotnet publish -c Release -r win-x64 --no-self-contai
 # Create Service Commands
 
 ```
-sc create PcVolumeControlService BinPath="<path-to-repository>\PcVolumeControlService\bin\Release\net7.0\win-x64\publish\PcVolumeControlService.exe"
+sc create PcVolumeControlService BinPath="<path-to-repository>\PcVolumeControlService\bin\Release\net8.0\win-x64\publish\PcVolumeControlService.exe"
 ```
 
 # Start, Stop & Delete Service Commands
