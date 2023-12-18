@@ -145,16 +145,33 @@ public class Client : IClient
         }
         if(audioUpdate.DefaultDevice.MasterVolume.HasValue)
         {
-            const int increment = 2;
-
             var deviceAudioVolume = defaultPlaybackDevice.Volume;
             var clientAudioVolume = audioUpdate.DefaultDevice.MasterVolume.Value;
 
-            var volume = deviceAudioVolume;
+            // Determine the volume value to set.
+            double volume;
             if(clientAudioVolume < deviceAudioVolume)
-                volume -= increment;
+            {
+                volume = Math.Ceiling(clientAudioVolume);
+
+                // If volume is odd make it even.
+                if((int) volume % 2 == 1)
+                    volume--;
+            }
             else if(clientAudioVolume > deviceAudioVolume)
-                volume += increment;
+            {
+                // When increasing the volume the increase is always performed in increments of 2.
+                const int MaximumIncrement = 2;
+
+                volume = Math.Ceiling(deviceAudioVolume) + MaximumIncrement;
+            }
+            // This else means the volume levels are equal, there is no need to change the volume.
+            else
+                return;
+
+            // If the volume is odd then make it even.
+            if((int) volume % 2 == 1)
+                volume--;
 
             // ReSharper disable once CompareOfFloatsByEqualityOperator
             if(volume != deviceAudioVolume)
