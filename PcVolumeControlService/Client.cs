@@ -160,9 +160,10 @@ public class Client : IClient
             }
             else if(clientAudioVolume > deviceAudioVolume)
             {
-                // When increasing the volume the increase is always performed in increments of 2.
+                // When increasing the volume the increase is always performed in increments.
                 const int MaximumIncrement = 2;
 
+                // Increment the volume based on the current device volume level.
                 volume = Math.Ceiling(deviceAudioVolume) + MaximumIncrement;
             }
             // This else means the volume levels are equal, there is no need to change the volume.
