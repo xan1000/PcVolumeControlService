@@ -1,13 +1,8 @@
 ﻿namespace PcVolumeControlService;
 
-public class WarmUp : BackgroundService
+public class WarmUp(CachingCoreAudioController cachingCoreAudioController) : BackgroundService
 {
-    private readonly CachingCoreAudioController _cachingCoreAudioController;
-
-    public WarmUp(CachingCoreAudioController cachingCoreAudioController)
-    {
-        _cachingCoreAudioController = cachingCoreAudioController;
-    }
+    private readonly CachingCoreAudioController _cachingCoreAudioController = cachingCoreAudioController;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

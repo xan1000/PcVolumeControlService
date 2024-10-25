@@ -3,18 +3,12 @@ using System.Net.Sockets;
 
 namespace PcVolumeControlService;
 
-public class Server : BackgroundService
+public class Server(ILogger<Server> logger, IClient client) : BackgroundService
 {
     private const int Port = 3500;
 
-    private readonly ILogger<Server> _logger;
-    private readonly IClient _client;
-
-    public Server(ILogger<Server> logger, IClient client)
-    {
-        _logger = logger;
-        _client = client;
-    }
+    private readonly ILogger<Server> _logger = logger;
+    private readonly IClient _client = client;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

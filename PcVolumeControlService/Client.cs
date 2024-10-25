@@ -4,11 +4,10 @@ using AudioSwitcher.AudioApi;
 using AudioSwitcher.AudioApi.CoreAudio;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
-using VolumeControl;
 
 namespace PcVolumeControlService;
 
-public class Client : IClient
+public class Client(ILogger<Client> logger, CachingCoreAudioController cachingCoreAudioController) : IClient
 {
     private const string ApplicationVersion = "v8";
     private const int ProtocolVersion = 7;
@@ -22,14 +21,8 @@ public class Client : IClient
         ContractResolver = new CamelCasePropertyNamesContractResolver()
     };
 
-    private readonly ILogger<Client> _logger;
-    private readonly CachingCoreAudioController _cachingCoreAudioController;
-
-    public Client(ILogger<Client> logger, CachingCoreAudioController cachingCoreAudioController)
-    {
-        _logger = logger;
-        _cachingCoreAudioController = cachingCoreAudioController;
-    }
+    private readonly ILogger<Client> _logger = logger;
+    private readonly CachingCoreAudioController _cachingCoreAudioController = cachingCoreAudioController;
 
     public async Task ExecuteAsync(TcpClient tcpClient, CancellationToken stoppingToken)
     {
@@ -85,10 +78,10 @@ public class Client : IClient
         var json = JsonConvert.SerializeObject(audioState, JsonSettings);
 
         await streamWriter.WriteLineAsync(new StringBuilder(json), stoppingToken);
-        await streamWriter.FlushAsync();
+        await streamWriter.FlushAsync(stoppingToken);
     }
 
-    private async Task<PcAudio> GetCurrentAudioStateAsync(CoreAudioController coreAudioController)
+    private static async Task<PcAudio> GetCurrentAudioStateAsync(CoreAudioController coreAudioController)
     {
         var audioState = new PcAudio
         {
@@ -115,7 +108,7 @@ public class Client : IClient
         return audioState;
     }
 
-    private async Task UpdateStateAsync(
+    private static async Task UpdateStateAsync(
         PcAudio audioUpdate, CoreAudioController coreAudioController, CancellationToken stoppingToken)
     {
         if(audioUpdate?.DefaultDevice == null)

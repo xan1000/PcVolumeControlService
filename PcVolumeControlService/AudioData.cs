@@ -3,7 +3,7 @@
 // ReSharper disable UnusedAutoPropertyAccessor.Global
 // ReSharper disable CollectionNeverQueried.Global
 
-namespace VolumeControl;
+namespace PcVolumeControlService;
 
 public class PcAudio
 {
@@ -19,7 +19,7 @@ public class AudioDevice
     public string Name { get; init; }
     public double? MasterVolume { get; init; }
     public bool? MasterMuted { get; init; }
-    public IList<AudioSession> Sessions { get; } = new List<AudioSession>();
+    public IList<AudioSession> Sessions { get; } = [];
 }
 
 public class AudioSession

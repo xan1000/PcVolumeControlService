@@ -30,6 +30,7 @@ public class CachingCoreAudioController : IDisposable
             finally
             {
                 _coreAudioController = null;
+                GC.SuppressFinalize(this);
             }
         }
     }
@@ -45,7 +46,7 @@ public class CachingCoreAudioController : IDisposable
                 throw new ArgumentOutOfRangeException($"Cannot set lifetime smaller than {MinimumCacheLifetime}");
 
             _cacheLifetime = value;
-            _logger.LogTrace($"Cache lifetime set to {_cacheLifetime}");
+            _logger.LogTrace("Cache lifetime set to {cacheLifetime}", _cacheLifetime);
         }
     }
 
@@ -65,7 +66,8 @@ public class CachingCoreAudioController : IDisposable
         var previousCacheExpiry = _cacheExpiry;
         _cacheExpiry = DateTime.Now.Add(_cacheLifetime);
 
-        _logger.LogTrace($"Cache expiry updated from {previousCacheExpiry} to {_cacheExpiry}");
+        _logger.LogTrace(
+            "Cache expiry updated from {previousCacheExpiry} to {cacheExpiry}", previousCacheExpiry, _cacheExpiry);
 
         ExpireCache(stoppingToken);
     }
